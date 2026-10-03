@@ -1,0 +1,54 @@
+[reproducibility]
+seed = 17
+
+[device]
+mode = "auto"
+
+[outputs]
+artifacts_dir = "artifacts"
+experiments_dir = "experiments"
+
+[dataset]
+adapter = "eurosat_ms"
+root = "data/EuroSAT_MS/EuroSAT_MS"
+catalog = "data/catalogs/eurosat_ms.jsonl"
+expected_count = 27000
+expected_shape = [13, 64, 64]
+bands = [
+    "B01", "B02", "B03", "B04", "B05", "B06", "B07",
+    "B08", "B09", "B10", "B11", "B12", "B8A",
+]
+value_scale = 1.0
+
+[split]
+manifest = "data/splits/eurosat_ms_seed_17.csv"
+train_fraction = 0.80
+validation_fraction = 0.10
+test_fraction = 0.10
+seed = 17
+stratify_by_label = true
+
+[loader]
+batch_size = 16
+num_workers = 0
+pin_memory = true
+
+[visualization]
+samples = 12
+lower_percentile = 2.0
+upper_percentile = 98.0
+
+[visualization.composites]
+rgb = ["B04", "B03", "B02"]
+color_infrared = ["B08", "B04", "B03"]
+swir = ["B12", "B8A", "B04"]
+
+[model]
+statistics_csv = "artifacts/milestone_1/band_statistics.csv"
+embedding_dim = 128
+cnn_channels = [32, 64, 128]
+vit_patch_size = 4
+vit_width = 192
+vit_depth = 4
+vit_heads = 3
+vit_mlp_ratio = 4
