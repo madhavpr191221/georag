@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+data/raw/
+data/EuroSAT_MS/
+data/*.zip
+data/catalogs/*.jsonl
+data/splits/*.csv
+artifacts/*
+!artifacts/README.md
+experiments/*
+!experiments/README.md
