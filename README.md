@@ -1,12 +1,14 @@
 # GeoRAG
 
-GeoRAG is a systems-level project for retrieving Earth-observation imagery, eventually from natural-language descriptions of visual content. Its path is:
+GeoRAG retrieves Earth-observation scenes as inspectable evidence for questions about physical surface conditions. Its first research question is whether multispectral Sentinel-2 representations can improve flood-evidence retrieval over matched RGB on unseen locations. The system returns ranked imagery, scores, metadata, and provenance; M9's label-agreement diagnostic is only an initial proxy for retrieval quality.
+
+Natural language is planned as a way to express a supported retrieval request. GeoRAG does not yet answer open-ended questions or generate explanations; retrieval quality comes first. The system path is:
 
 ```text
 EO imagery -> learned embedding -> index -> retrieval -> structured evidence
 ```
 
-GeoRAG is an Earth-observation retrieval project, not a generic vision-based RAG demo. Its next research task asks whether multispectral Sentinel-2 imagery helps retrieve flood evidence from unseen sequences/locations better than matched RGB-only imagery. Natural language will express EO intent and supported constraints; retrieval returns inspectable imagery and provenance before any generated answer.
+**Current status:** M0-M9 are implemented. M6 and M7 are exploratory Agriculture-Vision studies; M8 established the SEN12-FLOOD data contract; M9 compared scratch CNN and ViT representations trained on RGB or twelve Sentinel-2 optical bands. M9's flood-label neighbor agreement is only a dataset-label diagnostic, not human relevance evidence. The next milestone, M10, adds a narrow natural-language query interface and exact evidence retrieval; M11 evaluates whether those results are useful for the task.
 
 The repository already contains EuroSAT-MS tooling, scratch encoders and contrastive training, exact image retrieval, an Agriculture-Vision RGB-versus-RGB+NIR study (M6), and an exploratory RGB RemoteCLIP text-retrieval baseline (M7). Those are useful foundations and historical results, but they do not answer the new Sentinel-2 flood-retrieval question. See the [project specification](docs/PROJECT_SPEC.md) and [roadmap](docs/ROADMAP.md).
 
@@ -86,7 +88,7 @@ uv run python scripts/run_spectral_retrieval.py --config configs/milestone_6.tom
 
 The default compares exact cosine Top-10 retrieval for RGB and RGB+NIR across nine annotated patterns, reports category-level Recall@10 and mAP@10, excludes categories with fewer than 30 positive queries from macro scores, and bootstraps confidence intervals by query field. Results include training loss curves, checkpoints, embeddings, exact-neighbor image strips, run metadata, paired RGB+NIR-minus-RGB deltas, and a comparison plot under `experiments/milestone_6/`. `--smoke-limit 8` exercises the pipeline on a small prefix of both splits; it is a plumbing check, not a quality result. Output run directories are never overwritten. Each epoch saves an atomic latest checkpoint; resume an interrupted comparison with `--resume`.
 
-This experiment answers only whether spectral input changes example-image retrieval under these annotations and splits. It does not yet answer natural-language questions, establish general semantic relevance, or demonstrate geospatial generalization beyond this dataset. See the [M6 implementation report](reports/milestone_6_implementation.md) for the protocol, test status, and empirical results when available.
+This experiment answers only whether spectral input changes example-image retrieval under these annotations and splits. It does not establish general semantic relevance or geospatial generalization beyond this dataset. See the [M6 implementation report](reports/milestone_6_implementation.md) for the protocol, results, and limitations.
 
 ## M7 historical baseline: RGB natural-language image retrieval
 
@@ -115,7 +117,7 @@ The audit writes separate files under `experiments/milestone_7/vlm_audit/`: resu
 
 See the [GeoRAG roadmap](docs/ROADMAP.md), [M6 results report](reports/milestone_6_implementation.md), and [M7 query set](configs/milestone_7_queries.toml).
 
-## Next task: SEN12-FLOOD
+## M8-M9: SEN12-FLOOD data and representation study
 
 The first focused task uses the [SEN12-FLOOD Kaggle dataset](https://www.kaggle.com/datasets/virajkadam/sen12flood), downloaded manually and extracted under `data/sen12flood/`. The inspected STAC collections are nested under `data/sen12flood/sen12flood/`. This directory is ignored by Git. Do not commit the archive, imagery, extracted data, or result galleries containing source imagery. Kaggle currently reports the dataset license as unknown; record that status and do not redistribute the data.
 
