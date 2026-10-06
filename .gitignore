@@ -1,4 +1,7 @@
 .venv/
+.env
+.env.*
+!.env.example
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -8,6 +11,9 @@ build/
 dist/
 data/raw/
 data/EuroSAT_MS/
+data/AgricultureVision/
+data/SEN12-FLOOD/
+data/sen12flood/
 data/*.zip
 data/catalogs/*.jsonl
 data/splits/*.csv

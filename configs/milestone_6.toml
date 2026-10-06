@@ -1,0 +1,29 @@
+# Agriculture-Vision challenge subset. Expected root:
+# {train,val}/{images/{rgb,nir},labels/<pattern>}/<tile>.<ext>
+[dataset]
+root = "data/AgricultureVision/Agriculture-Vision-2021"
+catalog_cache_dir = "artifacts/milestone_6/catalog"
+image_size = 128
+value_scale = 255.0
+
+[model]
+embedding_dim = 128
+channels = [32, 64, 128]
+
+[training]
+epochs = 20
+batch_size = 64
+num_workers = 4
+learning_rate = 0.0003
+weight_decay = 0.0001
+temperature = 0.1
+
+[experiment]
+output_dir = "experiments/milestone_6"
+modalities = ["rgb", "rgbnir"]
+seeds = [17, 23, 42]
+k = 10
+minimum_queries = 30
+bootstrap_samples = 1000
+example_queries = 4
+query_chunk_size = 128
