@@ -30,7 +30,7 @@ class BandStandardizer(nn.Module):
     def channels(self) -> int:
         return self.mean.shape[1]
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(self, images: torch.Tensor, valid_mask: torch.Tensor | None = None) -> torch.Tensor:
         if images.ndim != 4:
             raise ValueError(f"expected BCHW input, received shape {tuple(images.shape)}")
         if not images.is_floating_point():
@@ -39,7 +39,13 @@ class BandStandardizer(nn.Module):
             raise ValueError(f"expected {self.channels} input bands, received {images.shape[1]}")
         mean = self.mean.to(dtype=images.dtype)
         standard_deviation = self.standard_deviation.to(dtype=images.dtype)
-        return (images - mean) / standard_deviation
+        normalized = (images - mean) / standard_deviation
+        if valid_mask is not None:
+            if valid_mask.shape not in {(images.shape[0], *images.shape[-2:]), (images.shape[0], 1, *images.shape[-2:])}:
+                raise ValueError("valid_mask must have [B,H,W] or [B,1,H,W] shape")
+            mask = valid_mask.unsqueeze(1) if valid_mask.ndim == 3 else valid_mask
+            normalized = normalized.masked_fill(~mask.to(device=images.device, dtype=torch.bool), 0.0)
+        return normalized
 
 
 class CNNEncoder(nn.Module):
@@ -74,9 +80,9 @@ class CNNEncoder(nn.Module):
         self.projection = nn.Linear(channels[-1], embedding_dim)
         self.embedding_dim = embedding_dim
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(self, images: torch.Tensor, valid_mask: torch.Tensor | None = None) -> torch.Tensor:
         """Map raw scaled tiles `[B,C,H,W]` to normalized embeddings `[B,d]`."""
-        normalized = self.normalizer(images)
+        normalized = self.normalizer(images, valid_mask)
         feature_map = self.features(normalized)
         pooled = self.pool(feature_map).flatten(start_dim=1)
         projected = self.projection(pooled)
@@ -96,7 +102,7 @@ class PatchEmbedding(nn.Module):
         self.unfold = nn.Unfold(kernel_size=patch_size, stride=patch_size)
         self.projection = nn.Linear(patch_values, width)
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(self, images: torch.Tensor, valid_mask: torch.Tensor | None = None) -> torch.Tensor:
         if images.ndim != 4 or images.shape[1] != self.input_channels:
             raise ValueError(
                 f"expected BCHW images with {self.input_channels} channels, received {tuple(images.shape)}"
@@ -201,13 +207,13 @@ class ViTEncoder(nn.Module):
         nn.init.trunc_normal_(self.class_token, std=0.02)
         nn.init.trunc_normal_(self.position_embedding, std=0.02)
 
-    def forward(self, images: torch.Tensor) -> torch.Tensor:
+    def forward(self, images: torch.Tensor, valid_mask: torch.Tensor | None = None) -> torch.Tensor:
         """Map raw scaled tiles `[B,C,H,W]` to normalized embeddings `[B,d]`."""
         if tuple(images.shape[-2:]) != self.image_size:
             raise ValueError(
                 f"expected image dimensions {self.image_size}, received {tuple(images.shape[-2:])}"
             )
-        normalized = self.normalizer(images)
+        normalized = self.normalizer(images, valid_mask)
         tokens = self.patch_embedding(normalized)
         batch = tokens.shape[0]
         class_token = self.class_token.expand(batch, -1, -1)

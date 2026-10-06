@@ -113,8 +113,8 @@ def knn_label_agreement(
             for k in ks
         }
     return {
-        "metric": "fraction_of_top_k_neighbors_with_same_EuroSAT_label",
-        "interpretation": "weak diagnostic only; class labels are not retrieval relevance judgments",
+        "metric": "fraction_of_top_k_neighbors_with_same_label",
+        "interpretation": "weak task-specific diagnostic only; labels are not human retrieval relevance judgments",
         "overall": overall,
         "per_class": per_class,
         "query_count": len(query_labels),

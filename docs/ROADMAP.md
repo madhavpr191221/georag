@@ -1,117 +1,91 @@
 # GeoRAG Roadmap
 
-GeoRAG is a staged project for retrieving Earth-observation imagery from images and, later, natural-language descriptions. The intended result is inspectable evidence: retrieved tiles, similarity scores, and available metadata. A generated answer is a much later, optional layer.
+GeoRAG is an Earth-observation retrieval system. Its research focus is whether multispectral measurements help retrieve useful evidence about physical surface conditions, beyond what RGB appearance alone supports. Natural language is the query interface; the project is not a generic vision RAG demo.
 
-The project develops its own image encoders and retrieval/indexing mechanisms. A pretrained image-text model is introduced as a baseline because the current from-scratch CNN and ViT were trained to compare images; they were not trained to align words with images. Keep these model spaces separate and compare them only on tasks each can perform.
-
-Implementation proceeds one milestone at a time. A milestone is complete when its deliverables and checks are reviewed; later stages do not need to be implemented in advance.
+The first task is flood-evidence retrieval on the user's local Kaggle copy of SEN12-FLOOD. The first controlled comparison is Sentinel-2 RGB versus its available optical bands, with identical small encoders, training protocol, data partitions, and seeds. Sentinel-1 SAR is a later modality experiment. Retrieval quality and exact-search results come before ANN engineering; generated answers come much later.
 
 ## Current state
 
-Milestones 0–4 are complete: repository foundation, EuroSAT-MS data layer, small from-scratch CNN and ViT, contrastive training, and persisted full-corpus embeddings for both encoders. The Milestone 3 report documents the training experiment and its limits. Same-label neighbors are only a weak proxy for relevance, and the existing split does not establish geographic generalization.
+M0–M7 established the repository, EuroSAT-MS adapter, from-scratch image encoders, contrastive training, embedding artifacts, exact image retrieval, an RGB-versus-RGB+NIR Agriculture-Vision experiment, and an RGB RemoteCLIP text-retrieval experiment. M6 and M7 are useful exploratory results on their stated datasets and proxies; neither establishes general natural-language multispectral retrieval. Preserve their reports as historical evidence.
 
-The immediate next milestone is M6: a natural-language-to-image baseline. Exact image-to-image retrieval now works as the Flat reference before any approximate index.
+M8's data path and M9's initial representation experiment are implemented. The extracted STAC collections, metadata counts, missing Sentinel-2 assets, sequence grouping, 20 m tensor contract, and split manifest are recorded in the [M8 audit report](../reports/milestone_8_sen12flood_data_audit.md). All 12 M9 training runs and exact test retrieval evaluations completed; see the [M9 report](../reports/milestone_9_sen12flood_representation.md) for the bounded findings and capacity caveat.
 
 ## Milestones
 
-### M0 — Repository foundation (complete)
+### M0–M5 — EO foundations (complete)
 
-- Establish the Python package, `uv` environment, configuration convention, tests, local experiment outputs, and device diagnostics.
-- **Complete when:** setup and basic checks run from the documented commands.
+- Package/configuration setup; EuroSAT-MS loading and inspection; explicit CNN and ViT encoders; NT-Xent training; persisted embedding corpora; exact Flat retrieval.
+- Existing reports and tests document behavior and limits. These milestones provide reusable mechanics, not proof of task relevance.
 
-### M1 — EO dataset and inspection (complete)
+### M6 — RGB versus RGB+NIR on Agriculture-Vision (complete; exploratory)
 
-- Load EuroSAT-MS tiles through the dataset adapter, retain stable IDs and available metadata, create deterministic splits, and inspect multispectral composites and per-band statistics.
-- **Complete when:** dataset, split, shape, metadata, and visualization checks pass on the local corpus.
+- Matched from-scratch encoders and self-supervised training compared RGB with RGB+NIR for retrieval against Agriculture-Vision anomaly labels.
+- The reported gain is specific to that dataset, task, and annotation-proxy protocol. Do not generalize it to Sentinel-2 or flood retrieval.
 
-### M2 — From-scratch image encoders (complete)
+### M7 — RGB text-to-image baseline (complete; exploratory)
 
-- Implement the small CNN and ViT in PyTorch with configurable input channels and an explicit embedding dimension.
-- **Complete when:** output shape, normalization, finite values, gradients, parameter counts, and device execution are verified.
+- RemoteCLIP ranked RGB Agriculture-Vision tiles for fixed text descriptions, with annotation-proxy metrics and optional model-assisted review.
+- This is an RGB baseline only. Its language/image space is separate from the scratch EO embeddings; VLM judgments are not human ground truth.
 
-### M3 — Contrastive image training (complete)
+### M8 — SEN12-FLOOD data and evaluation contract (data layer implemented)
 
-- Train the encoders with two geometric views of the same tile and an explicit symmetric NT-Xent objective. Save configurations, checkpoints, metrics, and loss curves.
-- **Complete when:** runs are reproducible and recoverable, and the report distinguishes optimization diagnostics from semantic retrieval quality.
+- User downloads the Kaggle archive manually into `data/sen12flood/`; the observed collections are nested under `data/sen12flood/sen12flood/`. Raw archives and extracted data remain untracked.
+- Initial audit: four STAC collections; 2,236 Sentinel-2 and 3,331 Sentinel-1 source/label pairs across 335 sequence IDs. Source and label item IDs have collection-specific prefixes and pair by exact sequence/date suffix. A 98-item subset has STAC metadata and labels but none of the 12 linked Sentinel-2 TIFFs present; preserve and flag these rows, and exclude them from optical model inputs.
+- Treat the sequence token as an exact string: 0001 and 1 refer to different bboxes. The local split uses the 335 observed string IDs; the upstream 337-location discrepancy remains documented, with no IDs merged or inferred.
+- The adapter loads the twelve available optical bands onto a per-scene 20 m grid anchored to B05. It area-averages finer bands, bilinearly interpolates coarser bands, uses nearest-neighbor for matching-resolution bands, and exposes a common valid-pixel mask.
+- A deterministic 80/10/10 split with seed 17 groups by exact sequence and includes metadata-only rows in the manifest. No group crosses partitions. Keep Sentinel-1/Sentinel-2 cross-sensor temporal matching as a separate concern.
+- Record labels from STAC properties, dates, sequence/location identifiers, partial coverage, and Kaggle provenance/license status against SEN12-FLOOD documentation.
+- Freeze supported query intents and evaluation: flood/no-flood relevance comes from the dataset's image/date labels; geographic and temporal constraints are evaluated separately. State that labels are image-level and that post-event dates may remain labeled flooded.
+- **Data-layer acceptance:** tests pass; local catalog counts and four representative tensor loads are verified; the report records the split fingerprint, band/grid contract, missing-file handling, label limitations, and reproduction command without copying data into Git. Full raster-corruption validation remains unperformed.
 
-### M4 — Embedding corpus (complete)
+### M9 — Matched RGB and multispectral flood representations (first experiment complete)
 
-- Encode the catalog with each selected scratch-model checkpoint in batches.
-- Persist the embedding matrix with ordered stable tile IDs, metadata, preprocessing/model identity, and a reproducible run configuration.
-- The completed run stores separate `[27000, 128]` float32 corpora for CNN and ViT, with all train/validation/test rows and their split assignments.
-- **Complete when:** reloaded artifacts preserve vector-to-tile alignment and produce finite embeddings with the expected dimensions. Both local artifacts passed this check.
+- Cache the 2,138 available Sentinel-2 scenes on the M8 20 m grid as disk-backed float32 imagery plus common valid-data masks. Fingerprint source files and preprocessing so stale caches rebuild.
+- Compute per-band population mean/std using valid pixels from training sequences only. RGB uses Sentinel-2 B04/B03/B02 and the same common mask as the 12-band condition; invalid pixels are zeroed after normalization.
+- Compare from-scratch CNN and small ViT encoders under RGB and all 12 optical bands (four conditions), using paired D4 transforms and explicit NT-Xent. D4 means right-angle rotation/reflection invariance; the same transformation is applied to every band and its mask.
+- Use AdamW, batch 16 original tiles (32 augmented views, 30 in-batch negatives per anchor), temperature 0.1, 20 epochs, and seeds 17/23/42. Select checkpoints by fixed-view validation NT-Xent loss. Start in full precision.
+- The train split is the retrieval gallery; the sequence-disjoint test split supplies query tiles. Exact cosine neighbors are summarized by flood/no-flood label agreement as a weak task proxy only. This is not human relevance or evidence of pixel-level flood detection.
+- A smoke run completed all four conditions (one seed, one epoch, small subsets) and validates plumbing only. Its perfect small-subset label agreement is not interpretable as retrieval quality.
+- Deferred from M9: supervised contrastive learning, spectral-index baselines, ANN, language parsing, and generated answers. Each requires a separate controlled comparison.
+- **Complete:** all 12 runs have checkpoints, learning curves, exact test neighbors, per-seed metrics, local inspection sheets, run/split/cache provenance, and a limitations-aware report.
 
-### M5 — Exact image-to-image retrieval (complete)
+### M10 — EO query parsing and exact evidence retrieval
 
-- Implement dense Flat search for cosine similarity, inner product, and Euclidean distance. Use scratch-model embeddings and return ranked tiles with scores and metadata.
-- Add query/result image-grid inspection and small synthetic correctness cases.
-- The NumPy CPU reference was tested on a held-out validation query against training candidates in both model spaces. For this normalized corpus, cosine, inner product, and Euclidean distance produced identical Top-5 rankings.
-- **Complete when:** exact Top-k agrees with hand-computed results on synthetic vectors and a real EuroSAT query can be traced to its source tile and metadata. Both checks pass; see the [M5 report](../reports/milestone_5_exact_retrieval.md).
+- Define a small `EOQuery` contract for flood intent, supported date and geographic constraints, sensor/modality, and optional example tile. A foundation model may parse free text into this typed request; validate its output and report unsupported or ambiguous fields.
+- Do not use the parser to score imagery or decide relevance. Implement candidate constraints and exact Flat ranking separately, returning tile IDs, scores, imagery references, metadata, and provenance.
+- For text-only flood intent, use an explicit training-derived flood prototype in the image-embedding space; for image-plus-text queries, use the example tile embedding and apply parsed constraints. Do not claim general text-image alignment from this slot-to-prototype mapping.
+- **Complete when:** paraphrases map reproducibly to the supported query schema, filter behavior is tested, and every ranked result can be traced to its source record.
 
-### M6 — Natural-language-to-image baseline
+### M11 — Retrieval analysis and evidence review
 
-- Add a local pretrained image-text model as a separate retrieval path. Use IBM [MS-CLIP](https://github.com/IBM/MS-CLIP) as the initial multispectral candidate; verify the released EuroSAT-compatible band mapping, normalization, and inference path before embedding the corpus.
-- Precompute corpus image embeddings, encode a visual-concept text query, and retrieve with exact Flat cosine search in that model's shared image-text space.
-- Initial queries describe visible content, such as “dense forest beside fields.” Do not add geographic/date parsing or generated answers in this milestone.
-- **Complete when:** a local query returns reproducible ranked tiles and all scores and IDs belong to the MS-CLIP space; no vectors are mixed with scratch-model embeddings.
+- Report Precision/Recall and mAP@k on label-defined relevance, uncertainty across seeds, query-constraint satisfaction, latency, and result provenance. Compare RGB, multispectral, objective variants, and spectral-index baselines under the same sequence/location protocol.
+- Inspect false neighbors and failure categories: representation, query parsing, metadata filtering, label limitations, or missing relevant examples. Treat label agreement as task-specific evidence, not universal human relevance.
+- **Complete when:** results support a bounded conclusion about whether multispectral input helps this task, including negative or inconclusive outcomes.
 
-### M7 — Relevance evaluation
+### M12 — Educational IVF, then PQ/IVF-PQ
 
-- Evaluate a fixed set of EuroSAT class-name queries against held-out labels and report per-class and macro retrieval metrics such as Recall@k and mAP or nDCG.
-- Review a small, fixed set of free-form/paraphrased queries by inspecting their Top-5 results. Record relevance judgments and failure examples separately from class-label metrics.
-- **Complete when:** results clearly state that EuroSAT labels and a small manual review set are limited relevance evidence, not a general semantic benchmark.
+- Implement IVF against exact Flat ground truth only after M11 establishes a useful exact-retrieval baseline. Then add educational PQ and IVF-PQ.
+- Measure Recall@k, latency, memory, build time, and distance evaluations; keep ANN recall distinct from label-defined semantic retrieval quality.
+- **Complete when:** correctness tests pass and recall/latency/memory tradeoffs are reported on the fixed flood query set.
 
-### M8 — Educational IVF
+### M13 — HNSW systems comparison
 
-- Implement coarse-centroid training, vector assignment, posting lists, nearest-cell probing, candidate scoring, and Top-k search.
-- Compare against the same embedding space's exact Flat ground truth while varying cluster count and `nprobe`.
-- **Complete when:** assignments and probing pass correctness checks, and recall/latency tradeoffs are measured against Flat.
+- Add a mature HNSW implementation as a systems baseline, not a from-scratch production graph index. Compare with Flat, IVF, and IVF-PQ using the same embeddings and queries.
+- **Complete when:** quality, latency, memory, and build-time measurements are reproducible with parameters and machine details recorded.
 
-### M9 — PQ and IVF-PQ
+### M14 — Broader EO query tasks and modalities
 
-- Implement vector subdivision, subspace codebooks, encoding, reconstruction, and approximate distance computation; combine PQ with IVF after standalone PQ is checked.
-- Measure quantization error, compression, index memory, Recall@k, and latency against Flat.
-- **Complete when:** encoding dimensions and reconstruction are validated and controlled tradeoff results are recorded.
+- Add vegetation condition/agricultural anomaly retrieval and Sentinel-1 SAR as separately scoped experiments with their own data, relevance definitions, and matched baselines.
+- Do not combine tasks or modalities until each has a clear evaluation protocol; temporal change retrieval requires paired observations and a separate change-focused objective.
 
-### M10 — HNSW systems comparison
+### M15 — Evidence-grounded answers (optional, last)
 
-- Integrate a mature HNSW implementation as a benchmark, rather than writing a production graph index from scratch.
-- Compare search quality, latency, memory, and build time with Flat and the educational indexes on the same corpus and queries.
-- **Complete when:** parameters and machine details are recorded and exact-vs-approximate retrieval quality is reported.
+- Only after retrieval is useful, allow an optional multimodal model to summarize a structured evidence object and cite supporting tile IDs. Preserve retrieved imagery, scores, metadata, and provenance independently of generated prose.
+- **Complete when:** evidence support and unsupported claims are evaluated; GeoRAG remains useful without answer generation.
 
-### M11 — Metadata, diversity, and evidence
+## Project-wide rules
 
-- Add explicit metadata predicates, MMR-style diversification, and a structured evidence result that records query, ranked tiles, scores, metadata, retrieval method, index parameters, and provenance.
-- Evaluate pre-filtering and retrieval-then-filtering as distinct strategies; report when filtering reduces candidate recall. Measure whether diversification reduces near-duplicate results while preserving relevance.
-- **Complete when:** filter behavior and evidence provenance are inspectable and tests cover filtering and diversification on known examples.
-
-### M12 — Retrieved-image captions (optional evidence aid)
-
-- Add on-demand local captions for retrieved tiles only, displayed as generated descriptions alongside the source imagery. For EuroSAT, render the B04/B03/B02 RGB composite for the captioner.
-- Keep captions out of embedding generation, retrieval scoring, and relevance labels. Record caption model/version and prompt; select and hardware-check the local model when this stage begins.
-- **Complete when:** captions are clearly labeled as generated, traceable to model/prompt, and never presented as metadata or verified event claims.
-
-### M13 — From-scratch image-text model (research extension)
-
-- After the pretrained text-image baseline is evaluated, select a suitable paired EO image-text dataset and train an inspectable dual encoder with an explicit contrastive objective.
-- Compare its text-to-image retrieval against the pretrained baseline using the same query set and relevance protocol. Dataset selection and licensing must be resolved before this stage.
-- **Complete when:** the training data, objective, and evaluation are documented and the custom model produces its own consistently versioned shared embedding space.
-
-### M14 — Temporal change retrieval (later research stage)
-
-- Introduce timestamped, paired observations and learn embeddings for changes between acquisitions, rather than static scene appearance.
-- Evaluate retrieval of analogous changes with temporal/geographic provenance and explicit relevance criteria.
-- **Complete when:** a held-out evaluation demonstrates retrieval of change patterns and separates change similarity from appearance similarity.
-
-### M15 — Evidence-grounded answer generation (optional, last)
-
-- Only after retrieval is useful and evaluated, add a local multimodal reasoning layer that receives the query and structured retrieved evidence.
-- Require answers to distinguish retrieved observations from interpretation and to identify supporting tiles. Retrieval remains independently usable without generation.
-- **Complete when:** answer quality is evaluated against evidence-grounding criteria and unsupported claims are analyzed.
-
-## Project-wide working rules
-
-- Preserve small, reproducible runs suited to the RTX 5060 Laptop GPU (8 GB VRAM) and 16 GB system RAM; use local artifacts and record configurations, seeds, model identity, and relevant system details.
-- For each algorithm, follow reference implementation, correctness checks, benchmark, then optimization.
-- Keep representation quality, semantic relevance, ANN recall, metadata filtering, and evidence diversity as separate evaluation questions.
-- Do not treat a visualization, label agreement, or nearest-neighbor score alone as proof of retrieval quality.
+- Data stays local and out of Git. Record source, license status, archive/file fingerprints, preprocessing, configuration, seeds, code revision, and system details for each experiment.
+- Correctness and task relevance precede ANN speed. Follow reference implementation → tests → benchmark → optimization.
+- A pretty projection, training loss, VLM judgment, class-label agreement, and ANN recall each measure different things; none alone proves useful EO evidence retrieval.
+- Keep experiments feasible for an 8 GB VRAM laptop GPU and 16 GB system RAM; smoke tests validate plumbing only.

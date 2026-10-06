@@ -1,0 +1,44 @@
+[dataset]
+config = "configs/milestone_8.toml"
+cache = "artifacts/milestone_9/cache"
+
+[split]
+manifest = "data/splits/sen12flood_s2_seed_17.csv"
+
+[model]
+embedding_dim = 128
+cnn_channels = [32, 64, 128]
+vit_image_size = [256, 256]
+vit_patch_size = 16
+vit_width = 192
+vit_depth = 4
+vit_heads = 3
+vit_mlp_ratio = 4
+
+[augmentation]
+name = "D4"
+description = "right-angle rotations and horizontal reflection; orientation is assumed irrelevant"
+
+[training]
+seeds = [17, 23, 42]
+architectures = ["cnn", "vit"]
+modalities = ["rgb", "s2_12band"]
+epochs = 20
+batch_size = 16
+learning_rate = 0.0003
+weight_decay = 0.0001
+temperature = 0.1
+num_workers = 0
+mixed_precision = false
+validation_views_fixed = true
+
+[evaluation]
+ks = [1, 5, 10]
+query_batch_size = 64
+retrieval_gallery = "train"
+test_queries = "test"
+label_proxy = "flood/no_flood label agreement; weak task proxy, not human relevance"
+
+[runtime]
+output_dir = "artifacts/milestone_9/runs"
+device = "auto"

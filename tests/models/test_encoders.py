@@ -48,6 +48,17 @@ def test_encoder_rejects_wrong_band_count() -> None:
         model(torch.randn(2, 12, 64, 64))
 
 
+def test_invalid_pixels_are_zero_after_standardization() -> None:
+    model = CNNEncoder([10.0, 20.0, 30.0], [2.0, 4.0, 5.0])
+    image = torch.tensor([[[[12.0, -999.0], [14.0, -999.0]],
+                           [[24.0, -999.0], [28.0, -999.0]],
+                           [[35.0, -999.0], [40.0, -999.0]]]])
+    mask = torch.tensor([[[True, False], [True, False]]])
+    normalized = model.normalizer(image, mask)
+    assert torch.equal(normalized[0, :, :, 1], torch.zeros(3, 2))
+    assert torch.allclose(normalized[0, :, :, 0], torch.tensor([[1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]))
+
+
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")
 def test_both_encoders_run_forward_and_backward_on_cuda() -> None:
     device = torch.device("cuda")

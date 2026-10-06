@@ -6,7 +6,9 @@ GeoRAG is a systems-level project for retrieving Earth-observation imagery, even
 EO imagery -> learned embedding -> index -> retrieval -> structured evidence
 ```
 
-The EuroSAT-MS data layer, two inspectable from-scratch encoders, a contrastive training experiment, and the first embedding corpora are complete. Exact Flat image retrieval is next. Natural-language image retrieval will follow using a separate pretrained image-text model; it complements rather than replaces the from-scratch encoders. GeoRAG returns ranked evidence before attempting answer generation.
+GeoRAG is an Earth-observation retrieval project, not a generic vision-based RAG demo. Its next research task asks whether multispectral Sentinel-2 imagery helps retrieve flood evidence from unseen sequences/locations better than matched RGB-only imagery. Natural language will express EO intent and supported constraints; retrieval returns inspectable imagery and provenance before any generated answer.
+
+The repository already contains EuroSAT-MS tooling, scratch encoders and contrastive training, exact image retrieval, an Agriculture-Vision RGB-versus-RGB+NIR study (M6), and an exploratory RGB RemoteCLIP text-retrieval baseline (M7). Those are useful foundations and historical results, but they do not answer the new Sentinel-2 flood-retrieval question. See the [project specification](docs/PROJECT_SPEC.md) and [roadmap](docs/ROADMAP.md).
 
 See the [GeoRAG roadmap](docs/ROADMAP.md) for the staged milestones, deliverables, and completion criteria.
 
@@ -72,6 +74,62 @@ uv run python scripts/search_flat.py --config configs/milestone_4.toml --model b
 
 Use `--query-tile-id` to select a particular validation tile, or choose `--metric inner_product` / `--metric euclidean` for equivalence checks. Results and visualizations are saved under `artifacts/milestone_5/`. The example run and its limitations are documented in [the Milestone 5 report](reports/milestone_5_exact_retrieval.md).
 
-## Current boundary
+## M6: RGB versus RGB+NIR retrieval
 
-The immediate next milestone is a natural-language-to-image baseline using exact search in a separate image-text aligned embedding space. ANN indexing, metadata-aware evidence, diversification, temporal change retrieval, and optional answer generation are later staged milestones. Nearest-neighbor agreement and ANN recall are measurements of different properties; neither alone establishes that retrieved evidence is relevant.
+M6 isolates one question: does NIR improve example-image retrieval for annotated agricultural surface patterns? It uses Agriculture-Vision challenge imagery as separate RGB and NIR rasters. Two matched from-scratch CNNs are trained with the same D4-view NT-Xent objective. Labels are not used for training; they define retrieval relevance after training. Since the challenge test split has no released anomaly labels, the official labeled validation split supplies queries and the official train split supplies the gallery. Official splits are field-disjoint.
+
+Place the labeled challenge subset under `data/AgricultureVision/Agriculture-Vision-2021/` (see [local data notes](data/README.md)). The run is configured for 128-pixel inputs, 20 epochs, and three seeds. It builds a local annotation catalog under `artifacts/milestone_6/catalog/`, validates it against source file paths, sizes, and modification times, and reuses it on restart:
+
+```powershell
+uv run python scripts/run_spectral_retrieval.py --config configs/milestone_6.toml
+```
+
+The default compares exact cosine Top-10 retrieval for RGB and RGB+NIR across nine annotated patterns, reports category-level Recall@10 and mAP@10, excludes categories with fewer than 30 positive queries from macro scores, and bootstraps confidence intervals by query field. Results include training loss curves, checkpoints, embeddings, exact-neighbor image strips, run metadata, paired RGB+NIR-minus-RGB deltas, and a comparison plot under `experiments/milestone_6/`. `--smoke-limit 8` exercises the pipeline on a small prefix of both splits; it is a plumbing check, not a quality result. Output run directories are never overwritten. Each epoch saves an atomic latest checkpoint; resume an interrupted comparison with `--resume`.
+
+This experiment answers only whether spectral input changes example-image retrieval under these annotations and splits. It does not yet answer natural-language questions, establish general semantic relevance, or demonstrate geospatial generalization beyond this dataset. See the [M6 implementation report](reports/milestone_6_implementation.md) for the protocol, test status, and empirical results when available.
+
+## M7 historical baseline: RGB natural-language image retrieval
+
+M7 uses the pretrained RemoteCLIP ViT-B/32 model as an RGB text-to-image retrieval baseline. It embeds the Agriculture-Vision train gallery and a fixed set of natural-language pattern descriptions; the existing exact NumPy Flat index ranks each gallery tile by cosine similarity. RemoteCLIP weights are downloaded on first run into the ignored local artifact directory and their SHA-256 is recorded with the embedding manifest. An optional OpenAI vision audit assesses the returned RGB tiles against each query. It is a model-assisted evaluation, not answer generation or human ground truth. RemoteCLIP is RGB-only, so this is not text-to-multispectral retrieval.
+
+Run a small execution check first (this downloads the pretrained checkpoint once):
+
+```powershell
+uv run python scripts/run_text_retrieval.py --config configs/milestone_7.toml --max-gallery 64
+```
+
+Build or reuse the complete gallery and query it with all 18 fixed descriptions:
+
+```powershell
+uv run python scripts/run_text_retrieval.py --config configs/milestone_7.toml
+```
+
+Full embeddings, ranked results, nine Top-5 image grids, and a 45-row review sheet are saved locally under `artifacts/milestone_7/` and `experiments/milestone_7/`. The full run completed: macro mAP@10 is 0.0984 and macro precision@10 is 0.15 against annotation labels, with performance concentrated in drydown and water. These are proxies, not natural-language ground truth. To run the optional VLM audit, set `OPENAI_API_KEY` in the shell and run:
+
+```powershell
+uv run python scripts/run_vlm_audit.py --limit 1  # one-pair API smoke check
+uv run python scripts/run_vlm_audit.py            # all retrieved examples; resumes saved judgments
+```
+
+The audit writes separate files under `experiments/milestone_7/vlm_audit/`: resumable `judgments.jsonl`, row-level CSV, JSON summary, Markdown report, and an HTML gallery with images and model decisions. It does not modify `human_audit.csv`. Review the [M7 retrieval report](reports/milestone_7_text_retrieval.md) for the retrieval baseline and keep VLM judgments distinct from human relevance labels.
+
+See the [GeoRAG roadmap](docs/ROADMAP.md), [M6 results report](reports/milestone_6_implementation.md), and [M7 query set](configs/milestone_7_queries.toml).
+
+## Next task: SEN12-FLOOD
+
+The first focused task uses the [SEN12-FLOOD Kaggle dataset](https://www.kaggle.com/datasets/virajkadam/sen12flood), downloaded manually and extracted under `data/sen12flood/`. The inspected STAC collections are nested under `data/sen12flood/sen12flood/`. This directory is ignored by Git. Do not commit the archive, imagery, extracted data, or result galleries containing source imagery. Kaggle currently reports the dataset license as unknown; record that status and do not redistribute the data.
+
+M8 now includes a STAC-backed Sentinel-2 adapter, a 20 m B05-anchored twelve-band loader, and a deterministic location-group split. Prepare the local catalog and manifest with `uv run python scripts/prepare_sen12flood.py --config configs/milestone_8.toml`. The verified catalog has 2,236 records, 2,138 available scenes, 98 missing-image records, and 335 exact sequence tokens. Keep tokens as strings: `0001` and `1` refer to different locations. The upstream documentation reports 337 locations; that discrepancy remains documented, while the local split uses only observed IDs. The [M8 audit report](reports/milestone_8_sen12flood_data_audit.md) records the adapter contract, split fingerprint, and data limitations. See [local data notes](data/README.md).
+
+M9 compares four from-scratch representation conditions: CNN or small ViT, each trained on Sentinel-2 RGB (B04/B03/B02) or all twelve optical bands. Paired views use exact 90-degree rotations/reflections; the validity mask undergoes the same transform. Training-only valid-pixel statistics prevent nodata fill values from affecting normalization. A disk-backed cache under ignored `artifacts/milestone_9/cache/` stores the aligned image stack and masks. Create an inspection figure and run a one-epoch smoke test with:
+
+```powershell
+uv run python scripts/inspect_sen12flood.py
+uv run python scripts/run_sen12flood_contrastive.py --smoke
+```
+
+The full configuration uses NT-Xent, AdamW, batch size 16 original tiles, 20 epochs, and seeds 17/23/42. Run with `uv run python scripts/run_sen12flood_contrastive.py`. Each run saves checkpoints, training/validation curves, exact test-to-train cosine neighbors, and a flood-label neighbor-agreement diagnostic. That label agreement is only a weak proxy: it does not measure human relevance, spatial flood extent, or generalized natural-language understanding. Details and final results belong in the [M9 report](reports/milestone_9_sen12flood_representation.md).
+
+After a completed experiment, export inspectable exact neighbors and representative result sheets with `uv run python scripts/export_milestone_9_neighbors.py artifacts/milestone_9/runs/<run-directory>`. The CSV includes query/gallery IDs, rank, score, date, sequence token, and flood label. The image sheet displays the query beside its Top-10 neighbors as true-color RGB for visual review; it does not stand in for ground-truth relevance judgments.
+
+This project does not yet perform text-to-multispectral alignment, natural-language geographic/date filtering, or answer generation. The parser will map supported free-form EO requests to an inspectable query structure; retrieval and relevance evaluation remain explicit GeoRAG components. ANN indexing follows task-specific exact retrieval, while temporal-change retrieval and generated answers remain later stages.
