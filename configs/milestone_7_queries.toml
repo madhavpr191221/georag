@@ -1,0 +1,111 @@
+# Fixed text queries map to the Agriculture-Vision annotation vocabulary.
+# They measure zero-shot text-to-image ranking against labels, not free-form
+# semantic correctness. The second phrase per class checks prompt sensitivity.
+
+[[queries]]
+id = "double_plant_canonical"
+category = "double_plant"
+text = "An aerial farmland image showing a double-plant pattern in crop rows."
+audit = true
+
+[[queries]]
+id = "double_plant_paraphrase"
+category = "double_plant"
+text = "An overhead agricultural image with doubled crop rows in a field."
+audit = false
+
+[[queries]]
+id = "drydown_canonical"
+category = "drydown"
+text = "An aerial view of a crop field showing areas of drydown."
+audit = true
+
+[[queries]]
+id = "drydown_paraphrase"
+category = "drydown"
+text = "Farmland with patches of crops that appear to be drying out."
+audit = false
+
+[[queries]]
+id = "endrow_canonical"
+category = "endrow"
+text = "Aerial farmland showing an end-row pattern at the edge of crop rows."
+audit = true
+
+[[queries]]
+id = "endrow_paraphrase"
+category = "endrow"
+text = "An overhead crop field with irregular patterns along the field ends."
+audit = false
+
+[[queries]]
+id = "nutrient_deficiency_canonical"
+category = "nutrient_deficiency"
+text = "An aerial crop field with patches of vegetation affected by nutrient deficiency."
+audit = true
+
+[[queries]]
+id = "nutrient_deficiency_paraphrase"
+category = "nutrient_deficiency"
+text = "Farmland with uneven patches of stressed crop vegetation."
+audit = false
+
+[[queries]]
+id = "planter_skip_canonical"
+category = "planter_skip"
+text = "An aerial crop field with gaps in rows caused by planter skips."
+audit = true
+
+[[queries]]
+id = "planter_skip_paraphrase"
+category = "planter_skip"
+text = "Farmland with visible gaps in the planted crop rows."
+audit = false
+
+[[queries]]
+id = "storm_damage_canonical"
+category = "storm_damage"
+text = "An aerial farmland image showing patches of crop storm damage."
+audit = true
+
+[[queries]]
+id = "storm_damage_paraphrase"
+category = "storm_damage"
+text = "An overhead crop field with areas of crops damaged after a storm."
+audit = false
+
+[[queries]]
+id = "water_canonical"
+category = "water"
+text = "An aerial crop field containing patches of standing water."
+audit = true
+
+[[queries]]
+id = "water_paraphrase"
+category = "water"
+text = "Farmland with waterlogged areas visible within a field."
+audit = false
+
+[[queries]]
+id = "waterway_canonical"
+category = "waterway"
+text = "An aerial farmland image showing a waterway crossing a crop field."
+audit = true
+
+[[queries]]
+id = "waterway_paraphrase"
+category = "waterway"
+text = "An agricultural field with a visible drainage waterway."
+audit = false
+
+[[queries]]
+id = "weed_cluster_canonical"
+category = "weed_cluster"
+text = "An aerial crop field with clusters of weeds among the crops."
+audit = true
+
+[[queries]]
+id = "weed_cluster_paraphrase"
+category = "weed_cluster"
+text = "An overhead farmland image showing localized patches of weeds."
+audit = false

@@ -1,0 +1,30 @@
+[dataset]
+root = "data/AgricultureVision/Agriculture-Vision-2021"
+catalog_cache_dir = "artifacts/milestone_6/catalog"
+display_image_size = 128
+value_scale = 255.0
+index_workers = 8
+
+[model]
+name = "RemoteCLIP"
+architecture = "ViT-B-32"
+repository = "chendelong/RemoteCLIP"
+checkpoint = "RemoteCLIP-ViT-B-32.pt"
+revision = "main"
+cache_dir = "artifacts/milestone_7/model_cache"
+
+[inference]
+batch_size = 32
+text_batch_size = 64
+num_workers = 4
+
+[retrieval]
+k = 10
+audit_k = 5
+
+[queries]
+path = "configs/milestone_7_queries.toml"
+
+[outputs]
+artifact_dir = "artifacts/milestone_7"
+experiment_dir = "experiments/milestone_7"

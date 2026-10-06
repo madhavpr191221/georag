@@ -5,8 +5,14 @@ description = "Retrieval-oriented representation and indexing experiments for EO
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+    "huggingface-hub>=2.1.1",
     "matplotlib>=3.11.1",
     "numpy>=2.5.2",
+    "open-clip-torch>=3.3.0",
+    "openai>=3.24.0",
+    "pillow>=11.3.0",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.4",
     "rasterio>=1.4.4",
     "torch>=2.11.0",
 ]

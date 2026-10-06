@@ -160,3 +160,64 @@ def save_retrieval_grid(
     figure.savefig(destination, dpi=160, bbox_inches="tight")
     plt.close(figure)
     return destination
+
+
+def save_text_retrieval_grid(
+    query_text: str,
+    retrieved: Sequence[tuple[TileSample, int, float]],
+    output_path: str | Path,
+    target_label: str,
+    lower_percentile: float = 2.0,
+    upper_percentile: float = 98.0,
+    columns: int = 3,
+) -> Path:
+    """Render a text query with ranked RGB tiles, scores, and annotation labels."""
+
+    if not query_text.strip():
+        raise ValueError("query_text must not be empty")
+    if not target_label.strip():
+        raise ValueError("target_label must not be empty")
+    if not retrieved:
+        raise ValueError("at least one retrieved sample is required")
+    if columns <= 0:
+        raise ValueError("columns must be positive")
+    if not 0 <= lower_percentile < upper_percentile <= 100:
+        raise ValueError("percentiles must satisfy 0 <= lower < upper <= 100")
+
+    rows = math.ceil(len(retrieved) / columns)
+    figure, axes = plt.subplots(
+        rows,
+        columns,
+        figsize=(4.2 * columns, 3.8 * rows),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    for axis, (sample, rank, score) in zip(axes.flat, retrieved, strict=False):
+        axis.imshow(
+            make_composite(
+                sample.image,
+                sample.record.bands,
+                ("R", "G", "B"),
+                lower_percentile,
+                upper_percentile,
+            ),
+            interpolation="nearest",
+        )
+        labels = ", ".join(sample.record.labels) if sample.record.labels else "no annotation"
+        axis.set_title(
+            f"Rank {rank} | cosine={score:.4f}\n{sample.record.tile_id}\n{labels}",
+            fontsize=8,
+        )
+        axis.axis("off")
+    for axis in axes.flat[len(retrieved):]:
+        axis.axis("off")
+    figure.suptitle(
+        f'Text query for "{target_label}": {query_text}',
+        fontsize=10,
+        wrap=True,
+    )
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(destination, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return destination
