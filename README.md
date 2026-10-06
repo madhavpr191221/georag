@@ -2,13 +2,13 @@
 
 GeoRAG retrieves Earth-observation scenes as inspectable evidence for questions about physical surface conditions. Its first research question is whether multispectral Sentinel-2 representations can improve flood-evidence retrieval over matched RGB on unseen locations. The system returns ranked imagery, scores, metadata, and provenance; M9's label-agreement diagnostic is only an initial proxy for retrieval quality.
 
-Natural language is planned as a way to express a supported retrieval request. GeoRAG does not yet answer open-ended questions or generate explanations; retrieval quality comes first. The system path is:
+Natural language expresses a supported retrieval request. GeoRAG does not answer open-ended questions or generate explanations; retrieval quality comes first. The system path is:
 
 ```text
 EO imagery -> learned embedding -> index -> retrieval -> structured evidence
 ```
 
-**Current status:** M0-M9 are implemented. M6 and M7 are exploratory Agriculture-Vision studies; M8 established the SEN12-FLOOD data contract; M9 compared scratch CNN and ViT representations trained on RGB or twelve Sentinel-2 optical bands. M9's flood-label neighbor agreement is only a dataset-label diagnostic, not human relevance evidence. The next milestone, M10, adds a narrow natural-language query interface and exact evidence retrieval; M11 evaluates whether those results are useful for the task.
+**Current status:** M0-M11 are implemented as staged foundations. M6 and M7 are exploratory Agriculture-Vision studies; M8 established the SEN12-FLOOD data contract; M9 compared scratch CNN and ViT representations trained on RGB or twelve Sentinel-2 optical bands. M10 adds narrow natural-language query parsing, explicit date/place filters, and exact evidence retrieval. M11 adds a separate index-based multispectral search for water-like signals and same-location temporal changes. Neither scene-label agreement nor spectral indices are pixel flood maps or human relevance ground truth.
 
 The repository already contains EuroSAT-MS tooling, scratch encoders and contrastive training, exact image retrieval, an Agriculture-Vision RGB-versus-RGB+NIR study (M6), and an exploratory RGB RemoteCLIP text-retrieval baseline (M7). Those are useful foundations and historical results, but they do not answer the new Sentinel-2 flood-retrieval question. See the [project specification](docs/PROJECT_SPEC.md) and [roadmap](docs/ROADMAP.md).
 
@@ -134,4 +134,46 @@ The full configuration uses NT-Xent, AdamW, batch size 16 original tiles, 20 epo
 
 After a completed experiment, export inspectable exact neighbors and representative result sheets with `uv run python scripts/export_milestone_9_neighbors.py artifacts/milestone_9/runs/<run-directory>`. The CSV includes query/gallery IDs, rank, score, date, sequence token, and flood label. The image sheet displays the query beside its Top-10 neighbors as true-color RGB for visual review; it does not stand in for ground-truth relevance judgments.
 
-This project does not yet perform text-to-multispectral alignment, natural-language geographic/date filtering, or answer generation. The parser will map supported free-form EO requests to an inspectable query structure; retrieval and relevance evaluation remain explicit GeoRAG components. ANN indexing follows task-specific exact retrieval, while temporal-change retrieval and generated answers remain later stages.
+M10 adds narrow natural-language query parsing and geographic/date filtering while keeping image ranking explicit. M11 adds a separate index-based multispectral path for single scenes and same-location temporal change; it does not perform learned text-to-multispectral alignment or answer generation. ANN indexing and generated answers remain later stages.
+
+## M10: Natural-language query and exact evidence interface
+
+M10 adds a local React interface and FastAPI backend for supported SEN12-FLOOD requests. The OpenAI Responses API parser converts query text into a typed request for flood/no-flood intent, dates, and a country or state/province. The UI shows the interpretation before retrieval. The parser receives text only; it does not see imagery, score candidates, or generate an answer.
+
+The UI exposes two M9 choices: one CNN and one ViT, each selected using held-out validation prototype Precision@5 across three seeds. Each is one exact checkpoint and has its own embedding space. For flood/no-flood requests, GeoRAG reserves 20% of training sequences as labeled examples that define the class prototype; those examples are excluded from the searchable training gallery. All remaining scenes are ranked by exact Flat cosine similarity, regardless of their label. This is a label-informed image-space baseline, not learned text-image alignment. An optional example tile is encoded by the selected checkpoint.
+
+The validation selector evaluates each class prototype against separate validation scenes, chooses the strongest RGB/12-band configuration within each encoder family by mean macro Precision@5, and exposes the representative seed nearest that mean. For the completed local M9 runs, both families select RGB; CNN and ViT each score 0.667 mean macro P@5, with different across-seed variation. These coarse scene-label proxy scores are selection diagnostics, not human relevance judgments or proof that RGB is generally superior.
+
+Generate the local selection artifact before starting the API (and again if M9 runs or configuration change):
+
+```powershell
+uv run python scripts/evaluate_m10_prototypes.py
+```
+
+The local data has dates from 2018-12-13 through 2019-05-20. The inspected STAC items contain footprints and timestamps but no administrative place names. Resolve a country or first-order state/province using a pinned offline Natural Earth 1:10m Admin-0/Admin-1 gazetteer and scene-bbox intersection. District coverage is not included. The Natural Earth map data is public domain; SEN12-FLOOD stays local.
+
+Prepare the gazetteer once:
+
+```powershell
+uv run python scripts/prepare_natural_earth.py
+```
+
+Keep the API and UI in separate PowerShell terminals:
+
+```powershell
+uv run uvicorn georag.api:app --host 127.0.0.1 --port 8000
+```
+
+```powershell
+cd web
+npm install
+npm run dev -- --host 127.0.0.1
+```
+
+Open `http://127.0.0.1:5173`. The API reads `OPENAI_API_KEY` from the project `.env` and never sends it to the browser. `GEORAG_QUERY_MODEL` can override the default parser model. The existing M9 raster cache, completed M9 checkpoints, and M10 selection artifact must be present. The app keeps the best selected CNN and ViT as RGB embedding baselines. Spectral requests use band-derived NDWI, MNDWI, and NDVI measurements; they do not use the RGB checkpoint score.
+
+## M11: Multispectral spectral evidence retrieval
+
+M11 adds text-directed searches for water-like spectral response and before/after change. It computes NDWI from B03/B08, MNDWI from B03/B11, and NDVI from B08/B04 with the common valid-pixel mask. For change searches, it pairs consecutive available Sentinel-2 observations from the same exact location sequence when the dates are no more than 30 days apart, then calculates after-minus-before index maps. Text requests can rank stronger/increasing/decreasing MNDWI evidence, while selected example scenes or pairs use exact cosine similarity over fixed index histograms.
+
+RGB thumbnails remain a visual reference. Spectral result cards show MNDWI maps and summary statistics for all three indices. The scores are measured index values or histogram similarities, not flood probabilities. The source copy has scene/date flood labels but no pixel flood masks, and its stored values are not asserted to be calibrated surface reflectance. Read the [M11 implementation report](reports/milestone_11_spectral_evidence.md) and [configuration](configs/milestone_11_spectral_evidence.toml) for equations, pairing rules, scoring, and limits. Synthetic tests validate the formulas and ranking mechanics; inspect real results before making retrieval-quality claims.

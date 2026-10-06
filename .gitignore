@@ -14,6 +14,7 @@ data/EuroSAT_MS/
 data/AgricultureVision/
 data/SEN12-FLOOD/
 data/sen12flood/
+data/geography/
 data/*.zip
 data/catalogs/*.jsonl
 data/splits/*.csv
@@ -21,3 +22,6 @@ artifacts/*
 !artifacts/README.md
 experiments/*
 !experiments/README.md
+web/node_modules/
+web/dist/
+web/.vite/

@@ -25,22 +25,30 @@ This is a task-specific retrieval study. It is not generic image RAG, a flood-ma
 
 ## Retrieval question and query contract
 
-Natural language is a way to express an EO retrieval request, not the representation-learning objective itself. A parser may be foundation-model-backed, but its only role is to map text into a validated, inspectable structure. It does not embed imagery, rank candidates, or judge result relevance.
+Natural language is a way to express an EO retrieval request, not the representation-learning objective itself. A parser may be foundation-model-backed, but its only role is to map text into a validated, inspectable structure. It does not embed imagery, rank candidates, or judge result relevance. M10 uses a local Natural Earth Admin-0/Admin-1 gazetteer because the inspected SEN12-FLOOD STAC items contain footprints and timestamps but no administrative place names. The boundary layer resolves names and spatial predicates; it is not source imagery metadata.
 
 The initial conceptual `EOQuery` contains:
 
 - `intent`: one supported flood-state intent (flood / no-flood) for the first task;
 - optional `start_time` and `end_time`;
-- optional geographic constraint using only location fields supported by the dataset;
+- optional country or first-order administrative-region constraint resolved against a pinned offline boundary gazetteer and intersected with the scene footprint;
 - `sensor` / modality request (Sentinel-2 RGB or Sentinel-2 multispectral initially; SAR deferred);
 - optional `example_tile_id` for image-conditioned retrieval;
 - original query text and parser provenance for auditability.
 
-Unsupported or ambiguous conditions must be surfaced explicitly instead of silently converted into filters. No geocoder or general natural-language geospatial reasoning is assumed in the first version.
+Unsupported or ambiguous conditions must be surfaced explicitly instead of silently converted into filters. M10 resolves only country and first-order state/province names using Natural Earth; it does not claim to provide district coverage or general natural-language geospatial reasoning.
 
-For text-only condition requests, derive an intent prototype from training-set embeddings and rank eligible items by similarity to that prototype. For a query with an example tile, use that tile's embedding as the visual query and apply the parsed temporal/geographic constraints to the candidate set. Prototype and example-tile ranking are distinct query modes and must be reported separately. The flood/no-flood labels used for quantitative relevance are never read from held-out query/gallery labels to construct the query vector or score.
+For text-only condition requests, derive an intent prototype from a fixed, sequence-grouped support subset of training embeddings and rank eligible items from the remaining training sequences. The support examples are not searchable results, preventing a prototype from ranking the examples that defined it. For a query with an example tile, use that tile's embedding as the visual query and apply the parsed temporal/geographic constraints to the candidate set. Prototype and example-tile ranking are distinct query modes and must be reported separately. The flood/no-flood labels used for quantitative relevance are never read from held-out validation/test scenes to construct the query vector.
 
 A retrieval result should expose rank, stable tile ID, similarity score, source image reference, date, location/sequence, sensor/band description, and retrieval/model/index provenance where present.
+
+### M11 spectral evidence path
+
+M11 adds a separate retrieval path whose scores come from named Sentinel-2 bands, not from the M9 RGB checkpoints. It computes NDWI `(B03-B08)/(B03+B08)`, MNDWI `(B03-B11)/(B03+B11)`, and NDVI `(B08-B04)/(B08+B04)` with the common valid-pixel mask. Scene summaries expose valid-pixel count, mean, median, and positive fraction. Text-only water-signal requests rank by median MNDWI; scene examples compare fixed 32-bin per-index histograms with exact cosine similarity.
+
+Temporal evidence uses consecutive available observations in one exact sequence, ordered by date and at most 30 days apart. Change is `after - before`; text-directed increase/decrease requests rank by the signed median MNDWI change. Selected before/after examples compare fixed 32-bin histograms for each index change with exact cosine similarity. Searchable scenes and pairs come from training sequences, and the complete example sequence is excluded from example-conditioned results. Date and geography constraints apply to the later scene in a pair.
+
+The result UI may show RGB as display context, but RGB pixels/checkpoint scores are not part of the spectral score. Index values are clues, not flood probabilities. SEN12-FLOOD labels remain scene/date-level, and the source values are not asserted to be calibrated surface reflectance. M11 does not perform pixel flood classification.
 
 ## Representation and baselines
 
@@ -58,7 +66,7 @@ A retrieval result should expose rank, stable tile ID, similarity score, source 
 ## Evaluation contract
 
 - Preserve the dataset's official sequence-level split when present. All dates and sensor observations from one sequence/location must remain on one side of a split. If the Kaggle layout does not preserve a usable official split, define one deterministic group split by sequence and publish its manifest/fingerprint.
-- Build the retrieval gallery and query set from disjoint sequences/locations. All model fitting, normalization statistics, and intent prototypes use training sequences only.
+- Build retrieval gallery and query/evaluation sets from disjoint sequences/locations. All model fitting, normalization statistics, and intent prototypes use training sequences only; prototype support sequences are also disjoint from the searchable training gallery.
 - Primary quantitative relevance is the dataset's flood/no-flood label. Report category-specific Precision/Recall and mAP@k, class balance, query counts, and uncertainty across seeds. Treat spatial/temporal constraint satisfaction as separate system correctness metrics.
 - Compare all encoders and index methods on the same query set and candidate pool. Exact Flat is the ranking ground truth for later ANN evaluation; ANN recall is not semantic relevance.
 - Inspect representative true positives, false positives, false negatives, duplicate/near-duplicate results, and failures caused by query parsing, metadata, representations, labels, or absent evidence.
@@ -68,8 +76,8 @@ A retrieval result should expose rank, stable tile ID, similarity score, source 
 
 1. **M8 — Data audit and adapter:** STAC pairing, metadata catalog, missing-asset handling, 20 m multispectral loading, validity masks, and deterministic sequence-group split are implemented. The unresolved 337-versus-335 location-count discrepancy remains an explicit dataset limitation.
 2. **M9 — Representation comparison:** matched CNN/ViT encoders for RGB and 12-band Sentinel-2, self-supervised NT-Xent, mask-aware normalization/transforms, test-time exact cosine diagnostics, and reproducible artifacts. Supervised contrastive learning and spectral-index baselines are deferred follow-ups.
-3. **M10 — Query and exact retrieval:** typed query parser/output validation, constraints, text-only class prototypes, image-conditioned queries, and exact Flat evidence results.
-4. **M11 — Evaluation:** task metrics, uncertainty, failure inspection, and a bounded scientific conclusion.
-5. **M12+ — Indexing and expansion:** IVF, PQ/IVF-PQ, HNSW, additional EO phenomena/modalities, temporal change retrieval, and only then optional answer generation.
+3. **M10 — Query and exact retrieval:** typed OpenAI query parsing, a local React/FastAPI interface, offline country/state/province resolution, date/footprint constraints, support-derived class prototypes, validation-selected CNN/ViT presets, image-conditioned queries, RGB preview cards, and exact Flat evidence results. This is a retrieval interface, not open-ended answering or text-image alignment.
+4. **M11 — Spectral evidence and evaluation:** index maps and summaries, water-signal ranking, same-sequence temporal index-change retrieval, then held-out retrieval metrics and failure inspection. The implementation is in place; scientific interpretation still requires review of real ranked results.
+5. **M12+ — Indexing and expansion:** IVF, PQ/IVF-PQ, HNSW, pixel-mask-based segmentation on a separately labeled dataset, additional EO phenomena/modalities, and only then optional answer generation.
 
 The detailed deliverables and completion criteria are maintained in [the roadmap](ROADMAP.md). Historical M6 and M7 reports remain unchanged and must not be presented as results for the SEN12-FLOOD experiment.

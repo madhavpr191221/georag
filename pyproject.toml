@@ -5,6 +5,7 @@ description = "Retrieval-oriented representation and indexing experiments for EO
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+    "fastapi>=0.142.2",
     "huggingface-hub>=2.1.1",
     "matplotlib>=3.11.1",
     "numpy>=2.5.2",
@@ -12,9 +13,12 @@ dependencies = [
     "openai>=3.24.0",
     "pillow>=11.3.0",
     "pydantic>=2.13.5",
+    "pyshp>=3.1.6",
     "python-dotenv>=1.2.4",
     "rasterio>=1.4.4",
+    "shapely>=2.1.2",
     "torch>=2.11.0",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]

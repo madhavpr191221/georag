@@ -10,6 +10,8 @@ M0–M7 established the repository, EuroSAT-MS adapter, from-scratch image encod
 
 M8's data path and M9's initial representation experiment are implemented. The extracted STAC collections, metadata counts, missing Sentinel-2 assets, sequence grouping, 20 m tensor contract, and split manifest are recorded in the [M8 audit report](../reports/milestone_8_sen12flood_data_audit.md). All 12 M9 training runs and exact test retrieval evaluations completed; see the [M9 report](../reports/milestone_9_sen12flood_representation.md) for the bounded findings and capacity caveat.
 
+M11 now has an implemented spectral evidence path: NDWI/MNDWI/NDVI scene summaries, water-like scene ranking, exact index-distribution search, and same-sequence before/after change ranking. See the [M11 report](../reports/milestone_11_spectral_evidence.md). The report and UI explicitly treat these measurements as evidence clues, not pixel flood labels.
+
 ## Milestones
 
 ### M0–M5 — EO foundations (complete)
@@ -49,16 +51,20 @@ M8's data path and M9's initial representation experiment are implemented. The e
 - Deferred from M9: supervised contrastive learning, spectral-index baselines, ANN, language parsing, and generated answers. Each requires a separate controlled comparison.
 - **Complete:** all 12 runs have checkpoints, learning curves, exact test neighbors, per-seed metrics, local inspection sheets, run/split/cache provenance, and a limitations-aware report.
 
-### M10 — EO query parsing and exact evidence retrieval
+### M10 — EO query parsing and exact evidence retrieval (implemented)
 
-- Define a small `EOQuery` contract for flood intent, supported date and geographic constraints, sensor/modality, and optional example tile. A foundation model may parse free text into this typed request; validate its output and report unsupported or ambiguous fields.
-- Do not use the parser to score imagery or decide relevance. Implement candidate constraints and exact Flat ranking separately, returning tile IDs, scores, imagery references, metadata, and provenance.
-- For text-only flood intent, use an explicit training-derived flood prototype in the image-embedding space; for image-plus-text queries, use the example tile embedding and apply parsed constraints. Do not claim general text-image alignment from this slot-to-prototype mapping.
-- **Complete when:** paraphrases map reproducibly to the supported query schema, filter behavior is tested, and every ranked result can be traced to its source record.
+- A local React/TypeScript interface and FastAPI backend expose typed query parsing, manual review, run selection, optional example-tile search, geographic disambiguation, and ranked evidence cards. The OpenAI parser receives query text only and is not used to rank or judge imagery.
+- A pinned Natural Earth 1:10m Admin-0/Admin-1 gazetteer resolves countries and state/province names because those names are absent from the inspected STAC items. Date and scene-footprint constraints are prefilters; exact cosine Flat ranks the remaining training gallery.
+- Text-only flood/no-flood requests use normalized class prototypes made from 20% of training sequences; these support examples are excluded from the searchable training gallery. All eligible gallery labels remain rankable, and the UI clearly shows each scene/date label. Example-tile queries use the selected run's checkpoint and normalization statistics.
+- `scripts/evaluate_m10_prototypes.py` ranks support-derived flood/no-flood prototypes against the separate validation split, reports macro label Precision@5 across seeds, and chooses one CNN plus one ViT preset. The current local selection chooses RGB for both families (0.667 mean macro P@5 for each; distinct uncertainty). This is only a coarse scene-label selection proxy.
+- Results expose the selected run, query-vector method, validation selection summary, cosine score, RGB preview, source tile ID, date, coordinates, label, bands, and provenance. Natural-language text still does not directly embed or judge the imagery.
+- **Implemented checks:** validation selection artifact generated from all 12 M9 runs; support/search sequences are disjoint; API model list exposes exactly two presets; query results are ranked only from the remaining training sequences. Unit tests cover grouped support splits, prototype scoring, deterministic preset selection, result labels, and existing query/filter behavior. M11 still owns broader retrieval-quality and failure analysis.
 
 ### M11 — Retrieval analysis and evidence review
 
-- Report Precision/Recall and mAP@k on label-defined relevance, uncertainty across seeds, query-constraint satisfaction, latency, and result provenance. Compare RGB, multispectral, objective variants, and spectral-index baselines under the same sequence/location protocol.
+- **Implemented baseline:** multispectral index maps and summaries, text-directed water-like ranking, histogram-based scene similarity, and same-sequence temporal index-change retrieval. The configured gallery is train-sequence-only, with a 30-day maximum gap between consecutive observations.
+- Next, inspect ranked examples and report label-defined retrieval metrics only as scene-level proxies, along with query-constraint satisfaction, latency, provenance, and failure cases.
+- Compare RGB learned retrieval against spectral evidence under the same sequence/location protocol; do not infer that image-level flood labels identify flooded pixels.
 - Inspect false neighbors and failure categories: representation, query parsing, metadata filtering, label limitations, or missing relevant examples. Treat label agreement as task-specific evidence, not universal human relevance.
 - **Complete when:** results support a bounded conclusion about whether multispectral input helps this task, including negative or inconclusive outcomes.
 

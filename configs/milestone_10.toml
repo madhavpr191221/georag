@@ -1,0 +1,13 @@
+[dataset]
+milestone_9_config = "configs/milestone_9.toml"
+
+[prototype]
+support_fraction = 0.20
+split_seed = 17
+
+[evaluation]
+k = 5
+batch_size = 32
+
+[selection]
+artifact = "artifacts/milestone_10/prototype_selection.json"

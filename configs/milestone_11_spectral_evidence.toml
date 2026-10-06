@@ -1,0 +1,18 @@
+[spectral]
+index_names = ["ndwi", "mndwi", "ndvi"]
+histogram_bins = 32
+histogram_min = -1.0
+histogram_max = 1.0
+change_histogram_min = -2.0
+change_histogram_max = 2.0
+denominator_epsilon = 0.000001
+
+[temporal]
+max_pair_days = 30
+pairing = "consecutive_available_scenes_same_sequence"
+change_direction = "after_minus_before"
+
+[retrieval]
+gallery_split = "train"
+exclude_example_sequence = true
+top_k_default = 10
