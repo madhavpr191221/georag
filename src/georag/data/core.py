@@ -31,12 +31,14 @@ class TileRecord:
 class TileSample:
     image: torch.Tensor
     record: TileRecord
+    valid_mask: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
 class TileBatch:
     images: torch.Tensor
     records: tuple[TileRecord, ...]
+    valid_masks: torch.Tensor | None = None
 
 
 SampleTransform = Callable[[torch.Tensor], torch.Tensor]
@@ -61,7 +63,21 @@ def collate_tiles(samples: Sequence[TileSample]) -> TileBatch:
     shapes = {tuple(sample.image.shape) for sample in samples}
     if len(shapes) != 1:
         raise ValueError(f"all tile tensors must have the same shape; received {sorted(shapes)}")
+    masks = [sample.valid_mask for sample in samples]
+    if any(mask is not None for mask in masks):
+        if any(mask is None for mask in masks):
+            raise ValueError("all samples in a batch must either provide valid masks or omit them")
+        expected_mask_shape = tuple(samples[0].image.shape[-2:])
+        if any(tuple(mask.shape) != expected_mask_shape for mask in masks if mask is not None):
+            raise ValueError(f"validity masks must match image spatial shape {expected_mask_shape}")
+        mask_shapes = {tuple(mask.shape) for mask in masks if mask is not None}
+        if len(mask_shapes) != 1:
+            raise ValueError(f"all validity masks must have the same shape; received {sorted(mask_shapes)}")
+        valid_masks = torch.stack([mask for mask in masks if mask is not None], dim=0)
+    else:
+        valid_masks = None
     return TileBatch(
         images=torch.stack([sample.image for sample in samples], dim=0),
         records=tuple(sample.record for sample in samples),
+        valid_masks=valid_masks,
     )
