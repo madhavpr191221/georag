@@ -63,7 +63,10 @@ M11 now has an implemented spectral evidence path: NDWI/MNDWI/NDVI scene summari
 ### M11 — Retrieval analysis and evidence review
 
 - **Implemented baseline:** multispectral index maps and summaries, text-directed water-like ranking, histogram-based scene similarity, and same-sequence temporal index-change retrieval. The configured gallery is train-sequence-only, with a 30-day maximum gap between consecutive observations.
-- Next, inspect ranked examples and report label-defined retrieval metrics only as scene-level proxies, along with query-constraint satisfaction, latency, provenance, and failure cases.
+- **First-pass input QA complete:** `scripts/audit_spectral_inputs.py` recomputes indices for all 210 available validation scenes, checks value ranges and hand-calculated pixels, records source raster/STAC metadata, and saves a fixed 16-scene contact sheet. The test split remains untouched.
+- The audit found no cloud/shadow/quality assets and found 12 validation scenes with nonempty masks but no usable index pixels; at least 99% of their masked pixels are zero across all bands. Investigate these scenes and settle a no-signal policy before scene-label or temporal metrics.
+- The [M11 spectral evidence evaluation plan](SPECTRAL_EVIDENCE_EVALUATION_PLAN.md) tracks the remaining steps: resolve the zero-valued scenes, then measure scene-label association and temporal index changes on held-out sequences, and review examples without label or score hints.
+- Scene/date label metrics remain proxies, not pixel flood accuracy. Pixel-level claims require a separate dataset with independent flood masks.
 - Compare RGB learned retrieval against spectral evidence under the same sequence/location protocol; do not infer that image-level flood labels identify flooded pixels.
 - Inspect false neighbors and failure categories: representation, query parsing, metadata filtering, label limitations, or missing relevant examples. Treat label agreement as task-specific evidence, not universal human relevance.
 - **Complete when:** results support a bounded conclusion about whether multispectral input helps this task, including negative or inconclusive outcomes.
